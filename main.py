@@ -9,6 +9,15 @@ from functions.loop_emote import (
 )
 from functions.json import bot_location
 
+# الكلمات المفتاحية لعرض قائمة الإيموتات
+emote_keywords = {
+    "emotelist", "emoteslist", "!emotes", "/emotes",
+    "!emote", "/emote", "emotes", "emote",
+    "emote list", "emotes list", "Emote", "Emotes",
+    "Emote list", "Emotes list", "Emotelist",
+    "!emotes list", "!emotelist", "!Emotes", "!Emote"
+}
+
 class Bot(BaseBot):
     def __init__(self):
         super().__init__()
@@ -25,39 +34,27 @@ class Bot(BaseBot):
         print("Bot is ready.")
         
     async def on_user_join(self, user: User, position: Position | AnchorPosition) -> None:
-        # Only the bot prints the message in the console
         print(f"{user.username} (ID: {user.id})")
-
-        # Announce the user has joined the room publicly
         await self.highrise.chat(f"{user.username} joined to find a Buddy !")
-
-        # Send welcome whispers to the user
         await self.highrise.send_whisper(user.id, f"❤️Welcome [{user.username}]! Use: [!emote list] or [1-97] for dances & emotes.")
         await self.highrise.send_whisper(user.id, f"❤️Use: [/help] for more information.")
         await self.highrise.send_whisper(user.id, f"❤Type F3 F2 and F1 to teleport between the floor 🤍.")
-
-        # Send emotes
         await self.highrise.send_emote("dance-hipshake")
         await self.highrise.send_emote("emote-lust", user.id)
-
-       # React with a heart emoji
         await self.highrise.react("heart", user.id)
 
     async def on_chat(self, user: User, message: str):
         print(f"[CHAT] {user.username}: {message}")
 
-        # عرض قائمة الإيموتات
-        try:
-            if message.lower().replace(" ", "") in (
-                "emotelist", "emoteslist", "!emotes", "/emotes",
-                "!emote", "/emote", "emotes", "emote", "emote list", "emotes list"
-            ):
+        # عرض قائمة الإيموتات عند تطابق الكلمة
+        if message.lower().strip() in [k.lower() for k in emote_keywords]:
+            try:
                 emote_names = [aliases[0] for aliases, _, _ in self.loop_emote_list]
                 emote_text = "Available Emotes:\n" + "\n".join(f"- {name}" for name in emote_names)
                 await self.highrise.send_whisper(user.id, emote_text)
                 return
-        except Exception as e:
-            print("Error sending emote list:", e)
+            except Exception as e:
+                print("Error sending emote list (chat):", e)
 
         # تشغيل الإيموتات التلقائية
         await check_and_start_emote_loop(self, user, message)
@@ -98,17 +95,14 @@ class Bot(BaseBot):
         print(f"[WHISPER] {user.username}: {message}")
 
         # عرض قائمة الإيموتات عند الهمس
-        try:
-            if message.lower().replace(" ", "") in (
-                "emotelist", "emoteslist", "!emotes", "/emotes",
-                "!emote", "/emote", "emotes", "emote", "emote list", "emotes list"
-            ):
+        if message.lower().strip() in [k.lower() for k in emote_keywords]:
+            try:
                 emote_names = [aliases[0] for aliases, _, _ in self.loop_emote_list]
                 emote_text = "Available Emotes:\n" + "\n".join(f"- {name}" for name in emote_names)
                 await self.highrise.send_whisper(user.id, emote_text)
                 return
-        except Exception as e:
-            print("Error sending emote list (whisper):", e)
+            except Exception as e:
+                print("Error sending emote list (whisper):", e)
 
         await check_and_start_emote_loop(self, user, message)
 
