@@ -23,10 +23,8 @@ class Bot(BaseBot):
         await self.highrise.chat(f"{user.username} joined to find a buddy!")
 
         # Send welcome whispers to the user
-        await self.highrise.send_whisper(user.id, f"❤️Welcome [{user.username}]! Use: [emotes] for dances & emotes."))
+        await self.highrise.send_whisper(user.id, f"❤️Welcome [{user.username}]! Use: [emotes] for dances & emotes.")
         await self.highrise.send_whisper(user.id, f"❤Type F3 F2 and F1 to teleport between the floor 🤍.")
-
-        # Send emotes
         await self.highrise.send_emote("dance-hipshake")
         await self.highrise.send_emote("emote-lust", user.id)
         await asyncio.sleep(0.5)
