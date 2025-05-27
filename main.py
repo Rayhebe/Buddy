@@ -194,6 +194,7 @@ class Bot(BaseBot):
               return
           #send message to chat
           await self.highrise.chat(f"{username} He was banned from the room!!")
+          await check_and_start_emote_loop(user, message, self.highrise)
 
     async def teleport(self, user: User, position: Position):
         try:
