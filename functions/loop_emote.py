@@ -272,12 +272,33 @@ async def handle_user_movement(self: BaseBot, user: User, pos) -> None:
     if user.id not in self.user_loops:
         return
 
-    # Pause the emote while user is moving
-    self.user_loops[user.id]["paused"] = True
-    user_last_positions[user.id] = (pos.x, pos.y, pos.z)
-
-    await asyncio.sleep(2)
-
+    previous_pos = user_last_positions.get(user.id)
     current_pos = (pos.x, pos.y, pos.z)
-    if user_last_positions.get(user.id) == current_pos:
-        self.user_loops[user.id]["paused"] = False
+
+    # إذا كانت هذه أول مرة نحفظ فيها الموقع، فقط خزّنه ولا توقف اللوب
+    if not previous_pos:
+        user_last_positions[user.id] = current_pos
+        return
+
+    # حساب الفرق بين الموقع السابق والحالي
+    moved_distance = (
+        abs(current_pos[0] - previous_pos[0]) +
+        abs(current_pos[1] - previous_pos[1]) +
+        abs(current_pos[2] - previous_pos[2])
+    )
+
+    # إذا كان التحرك فعلي (أكبر من 0.15)، أوقف اللوب مؤقتًا
+    if moved_distance > 0.15:
+        self.user_loops[user.id]["paused"] = True
+        user_last_positions[user.id] = current_pos
+
+        await asyncio.sleep(2)
+
+        # التحقق إن كان المستخدم توقف عن الحركة
+        latest_pos = (pos.x, pos.y, pos.z)
+        if latest_pos == current_pos:
+            self.user_loops[user.id]["paused"] = False
+
+    else:
+        # لم يتحرك فعليًا، تجاهل
+        pass
