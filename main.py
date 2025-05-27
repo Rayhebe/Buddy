@@ -1,3 +1,4 @@
+import asyncio
 import random
 import os
 import importlib.util
@@ -5,6 +6,15 @@ from highrise import*
 from highrise import BaseBot,Position
 from highrise.models import SessionMetadata
 from highrise import Highrise, GetMessagesRequest
+from highrise import BaseBot, Position
+from highrise.models import SessionMetadata, User, AnchorPosition
+from functions.loop_emote import (
+    check_and_start_emote_loop,
+    handle_user_movement,
+    emote_list
+)
+from functions.json import bot_location
+
 
 casa = ["I Marry You 💍","Of course I do 💍❤️","I don't want to 💍💔","Of course I don't 💍💔","I Love You Of course I marry you 💍"]
 
