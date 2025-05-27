@@ -1,7 +1,8 @@
-from highrise import *
-from highrise.models import *
 import asyncio
 from asyncio import Task
+
+from highrise import Highrise
+from highrise.models import *
 
 emote_list: list[tuple[list[str], str, float]] = [
     (['rest', 'REST', 'Rest'], 'sit-idle-cute', 17.06),
