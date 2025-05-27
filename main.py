@@ -23,16 +23,14 @@ class Bot(BaseBot):
         await self.highrise.chat(f"{user.username} joined to find a buddy!")
 
         # Send welcome whispers to the user
-        await self.highrise.send_whisper(user.id, f"❤️Welcome [{user.username}]! Use: [!emote list] or [1-97] for dances & emotes.")
-        await self.highrise.send_whisper(user.id, f"❤️Use: [/help] for more information.")
+        await self.highrise.send_whisper(user.id, f"❤️Welcome [{user.username}]! Use: [emotes] for dances & emotes."))
         await self.highrise.send_whisper(user.id, f"❤Type F3 F2 and F1 to teleport between the floor 🤍.")
 
         # Send emotes
         await self.highrise.send_emote("dance-hipshake")
         await self.highrise.send_emote("emote-lust", user.id)
-
-       # React with a heart emoji
-        await self.highrise.react("heart", user.id)
+        await asyncio.sleep(0.5)
+        await self.highrise.react("clap", user.id)
 
     async def on_start(self, session_metadata: SessionMetadata) -> None:
         if bot_location:
