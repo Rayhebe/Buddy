@@ -1,6 +1,7 @@
 import asyncio
 from highrise import BaseBot, Position
 from highrise.models import SessionMetadata, User, AnchorPosition
+from functions.emote_list_data import emote_names
 from functions.loop_emote import (
     check_and_start_emote_loop,
     handle_user_movement,
