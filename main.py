@@ -1,6 +1,7 @@
 import asyncio
 from highrise import BaseBot, Position
 from highrise.models import SessionMetadata, User, AnchorPosition
+from highrise import Highrise, GetMessagesRequest
 from functions.loop_emote import (
     check_and_start_emote_loop,
     handle_user_movement,
@@ -22,6 +23,25 @@ class Bot(BaseBot):
             except Exception as e:
                 print("Error moving to saved position:", e)
         print("Bot is ready.")
+        
+    async def on_user_join(self, user: User, position: Position | AnchorPosition) -> None:
+        # Only the bot prints the message in the console
+        print(f"{user.username} (ID: {user.id})")
+
+        # Announce the user has joined the room publicly
+        await self.highrise.chat(f"{user.username} joined to find a Buddy !")
+
+        # Send welcome whispers to the user
+        await self.highrise.send_whisper(user.id, f"❤️Welcome [{user.username}]! Use: [!emote list] or [1-97] for dances & emotes.")
+        await self.highrise.send_whisper(user.id, f"❤️Use: [/help] for more information.")
+        await self.highrise.send_whisper(user.id, f"❤Type F3 F2 and F1 to teleport between the floor 🤍.")
+
+        # Send emotes
+        await self.highrise.send_emote("dance-hipshake")
+        await self.highrise.send_emote("emote-lust", user.id)
+
+       # React with a heart emoji
+        await self.highrise.react("heart", user.id)
 
     async def on_chat(self, user: User, message: str):
         print(f"[CHAT] {user.username}: {message}")
