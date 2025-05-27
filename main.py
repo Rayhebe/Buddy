@@ -27,16 +27,23 @@ class Bot(BaseBot):
     async def on_chat(self, user: User, message: str):
         print(f"[CHAT] {user.username}: {message}")
 
-         # عرض قائمة الإيموتات
+        # عرض قائمة الإيموتات
         try:
             if message.lower().replace(" ", "") in (
                 "emotelist", "emoteslist", "!emotes", "/emotes",
                 "!emote", "/emote", "emotes", "emote", "emote list", "emotes list"
             ):
                 emote_names = [aliases[0] for aliases, _, _ in self.loop_emote_list]
-                emote_text = "Available Emotes:\n" + "\n".join(f"- {name}" for name in emote_names)
-                await self.highrise.send_whisper(user.id, emote_text)
+                chunk_size = 20
+                for i in range(0, len(emote_names), chunk_size):
+                    chunk = emote_names[i:i + chunk_size]
+                    message_chunk = "Available Emotes:\n" + "\n".join(f"- {name}" for name in chunk)
+                    await self.highrise.send_whisper(user.id, message_chunk)
+                    await asyncio.sleep(0.5)
                 return
+        except Exception as e:
+            print("Error sending emote list:", e)
+
         # تشغيل الإيموتات التلقائية
         await check_and_start_emote_loop(self, user, message)
 
@@ -74,14 +81,15 @@ class Bot(BaseBot):
 
     async def on_whisper(self, user: User, message: str):
         print(f"[WHISPER] {user.username}: {message}")
-        # عرض قائمة الإيموتات عند الهمس (بتقسيمها إلى أجزاء)
+
+        # عرض قائمة الإيموتات عند الهمس
         try:
             if message.lower().replace(" ", "") in (
                 "emotelist", "emoteslist", "!emotes", "/emotes",
                 "!emote", "/emote", "emotes", "emote", "emote list", "emotes list"
             ):
-                chunk_size = 20
                 emote_names = [aliases[0] for aliases, _, _ in self.loop_emote_list]
+                chunk_size = 20
                 for i in range(0, len(emote_names), chunk_size):
                     chunk = emote_names[i:i + chunk_size]
                     message_chunk = "Available Emotes:\n" + "\n".join(f"- {name}" for name in chunk)
@@ -89,7 +97,7 @@ class Bot(BaseBot):
                     await asyncio.sleep(0.5)
                 return
         except Exception as e:
-            print("Error sending emote list (whisper):", e)e)
+            print("Error sending emote list (whisper):", e)
 
         await check_and_start_emote_loop(self, user, message)
 
