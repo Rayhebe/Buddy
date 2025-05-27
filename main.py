@@ -12,7 +12,24 @@ class Bot(BaseBot):
     def __init__(self):
         super().__init__()
         self.user_loops = {}
-        self.loop_emote_list = emote_list
+        self.loop_emote_list = emote_list         
+    async def on_user_join(self, user: User, position: Position | AnchorPosition) -> None:
+        # Only the bot prints the message in the console
+        print(f"{user.username} (ID: {user.id})")
+
+        # Announce the user has joined the room publicly
+        await self.highrise.chat(f"{user.username} joined to Find A Buddy!")
+
+        # Send welcome whispers to the user
+        await self.highrise.send_whisper(user.id, f"❤️Welcome [{user.username}]! Use: [!emote list] or [1-97] for dances & emotes.")
+        await self.highrise.send_whisper(user.id, f"❤Type F3 F2 and F1 to teleport between the floor 🤍.")
+
+        # Send emotes
+        await self.highrise.send_emote("dance-hipshake")
+        await self.highrise.send_emote("emote-lust", user.id)
+
+       # React with a heart emoji
+        await self.highrise.react("heart", user.id)
 
     async def on_start(self, session_metadata: SessionMetadata) -> None:
         if bot_location:
