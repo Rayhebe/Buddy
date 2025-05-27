@@ -1,7 +1,7 @@
 import asyncio
 from asyncio import Task
 
-from highrise import Highrise
+from highrise import Highrise, BaseBot
 from highrise.models import *
 
 emote_list: list[tuple[list[str], str, float]] = [
