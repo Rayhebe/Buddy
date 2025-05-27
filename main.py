@@ -1,6 +1,7 @@
 import asyncio
 from highrise import BaseBot, Position
 from highrise.models import SessionMetadata, User, AnchorPosition
+from highrise import Highrise, GetMessagesRequest
 from functions.emote_list_data import emote_names
 from functions.loop_emote import (
     check_and_start_emote_loop,
@@ -81,6 +82,11 @@ class Bot(BaseBot):
 
     async def on_whisper(self, user: User, message: str):
         print(f"[WHISPER] {user.username}: {message}")
+
+
+        if user.username.lower() == "raybm" or user.username.lower() == "botmes":
+            await self.highrise.chat(message)
+            print(f"Broadcasted private message to the room: {message}")
 
         # عرض قائمة الإيموتات عند الهمس
         try:
