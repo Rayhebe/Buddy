@@ -269,38 +269,38 @@ async def check_and_start_emote_loop(self: BaseBot, user: User, message: str):
             f"You are now in a loop for emote number {aliases[0]}. (To stop, type 'stop')"
         )
 
-# Pause/resume loop when user walks/stops
-async def handle_user_movement(self: BaseBot, user: User, pos) -> None:
-    if user.id not in self.user_loops:
+async def handle_user_movement(bot, user, new_position):
+    user_id = user.id
+
+    # إذا ما كان هذا المستخدم عنده حلقة إيموت شغالة
+    if user_id not in bot.user_loops:
         return
 
-    previous_pos = user_last_positions.get(user.id)
-    current_pos = (pos.x, pos.y, pos.z)
+    # إذا ما تم تخزين الموقع السابق لهذا المستخدم، خزنه
+    if not hasattr(bot, "previous_positions"):
+        bot.previous_positions = {}
 
-    # إذا كانت هذه أول مرة نحفظ فيها الموقع، فقط خزّنه ولا توقف اللوب
-    if not previous_pos:
-        user_last_positions[user.id] = current_pos
+    prev_pos = bot.previous_positions.get(user_id)
+
+    # حفظ الموقع الحالي كموقع سابق إذا أول مرة
+    if prev_pos is None:
+        bot.previous_positions[user_id] = new_position
         return
 
-    # حساب الفرق بين الموقع السابق والحالي
-    moved_distance = (
-        abs(current_pos[0] - previous_pos[0]) +
-        abs(current_pos[1] - previous_pos[1]) +
-        abs(current_pos[2] - previous_pos[2])
-    )
+    # مقارنة الموقع السابق بالجديد (فقط X و Y و Z)
+    if (
+        prev_pos.x == new_position.x
+        and prev_pos.y == new_position.y
+        and prev_pos.z == new_position.z
+    ):
+        # لم يتغير الموقع فعليًا (ربما فقط جلس)، لا توقف الحلقة
+        return
 
-    # إذا كان التحرك فعلي (أكبر من 0.15)، أوقف اللوب مؤقتًا
-    if moved_distance > 0.15:
-        self.user_loops[user.id]["paused"] = True
-        user_last_positions[user.id] = current_pos
+    # تحديث الموقع الجديد
+    bot.previous_positions[user_id] = new_position
 
-        await asyncio.sleep(2)
-
-        # التحقق إن كان المستخدم توقف عن الحركة
-        latest_pos = (pos.x, pos.y, pos.z)
-        if latest_pos == current_pos:
-            self.user_loops[user.id]["paused"] = False
-
-    else:
-        # لم يتحرك فعليًا، تجاهل
-        pass
+    # إذا فعلاً تحرك (تغير الموقع)، أوقف الحلقة مؤقتاً
+    loop_task = bot.user_loops.get(user_id)
+    if loop_task:
+        loop_task.cancel()
+        del bot.user_loops[user_id]
