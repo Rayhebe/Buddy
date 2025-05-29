@@ -269,38 +269,39 @@ async def check_and_start_emote_loop(self: BaseBot, user: User, message: str):
             f"You are now in a loop for emote number {aliases[0]}. (To stop, type 'stop')"
         )
 
+
 async def handle_user_movement(bot, user, new_position):
     user_id = user.id
 
-    # إذا ما كان هذا المستخدم عنده حلقة إيموت شغالة
+    # إذا المستخدم ما عنده إيموت شغال
     if user_id not in bot.user_loops:
         return
 
-    # إذا ما تم تخزين الموقع السابق لهذا المستخدم، خزنه
     if not hasattr(bot, "previous_positions"):
         bot.previous_positions = {}
 
     prev_pos = bot.previous_positions.get(user_id)
 
-    # حفظ الموقع الحالي كموقع سابق إذا أول مرة
+    # إذا أول مرة نشوف موقعه، نخزن ونسكت
     if prev_pos is None:
         bot.previous_positions[user_id] = new_position
         return
 
-    # مقارنة الموقع السابق بالجديد (فقط X و Y و Z)
-    if (
-        prev_pos.x == new_position.x
-        and prev_pos.y == new_position.y
-        and prev_pos.z == new_position.z
-    ):
-        # لم يتغير الموقع فعليًا (ربما فقط جلس)، لا توقف الحلقة
-        return
+    # نستخدم threshold علشان نتجاهل تغييرات بسيطة (مثل الجلوس)
+    def position_changed(p1, p2, threshold=0.01):
+        return (
+            abs(p1.x - p2.x) > threshold or
+            abs(p1.y - p2.y) > threshold or
+            abs(p1.z - p2.z) > threshold
+        )
 
-    # تحديث الموقع الجديد
-    bot.previous_positions[user_id] = new_position
-
-    # إذا فعلاً تحرك (تغير الموقع)، أوقف الحلقة مؤقتاً
-    loop_task = bot.user_loops.get(user_id)
-    if loop_task:
-        loop_task.cancel()
-        del bot.user_loops[user_id]
+    # إذا فعلاً تحرك كثير، نوقف الحلقة
+    if position_changed(prev_pos, new_position):
+        bot.previous_positions[user_id] = new_position
+        loop_task = bot.user_loops.get(user_id)
+        if loop_task:
+            loop_task.cancel()
+            del bot.user_loops[user_id]
+    else:
+        # تحديث فقط بدون إيقاف لو ما تغير الموقع فعليًا
+        bot.previous_positions[user_id] = new_position
