@@ -3,7 +3,8 @@ from asyncio import Task
 from highrise import BaseBot
 from highrise.models import *
 
-emote_list: list[tuple[list[str], str, float]] = [
+# قائمة الإيموتات: [(الأسماء البديلة), معرف الإيموت, المدة بالثواني]
+emote_list = [
     (['rest', 'REST', 'Rest'], 'sit-idle-cute', 17.06),
     (['zombie', 'ZOMBIE', 'Zombie'], 'idle_zombie', 28.75),
     (['relaxed', 'RElAXED', 'Relaxed'], 'idle_layingdown2', 20.55),
@@ -219,81 +220,71 @@ emote_list: list[tuple[list[str], str, float]] = [
     (["222", "at attention", "At Attention"], "emote-salute", 3),
 ]
 
-# Start emote loop for a specific user
-async def check_and_start_emote_loop(self: BaseBot, user: User, message: str):
-    cleaned_msg = message.strip().lower()
 
-    if cleaned_msg in ("stop", "/stop", "!stop", "-stop"):
-        if user.id in self.user_loops:
-            self.user_loops[user.id]["task"].cancel()
-            del self.user_loops[user.id]
-            await self.highrise.send_whisper(user.id, "❌ Emote loop stopped. (Type any emote name or number to start again)")
-        else:
-            await self.highrise.send_whisper(user.id, "❌ No emote loop is currently running.")
+# دالة تحديد الإيموت من الرسالة
+def find_emote(message: str):
+    msg = message.lower().strip()
+    for aliases, emote_id, duration in emote_list:
+        if msg in aliases or msg == emote_id or msg == str(emote_list.index((aliases, emote_id, duration)) + 1):
+            return emote_id, duration
+    return None, None
+
+# تشغيل الإيموت للمستخدم
+async def start_emote_loop(bot, user, emote_id, duration):
+    user_id = user.id
+    while bot.user_loops.get(user_id, {}).get("active", False):
+        if not bot.user_loops[user_id].get("paused", False):
+            try:
+                await bot.highrise.send_emote(emote_id, user_id)
+            except Exception as e:
+                print(f"[Emote Error for {user.username}] {e}")
+        await asyncio.sleep(duration)
+
+# التحقق وتشغيل الإيموت
+async def check_and_start_emote_loop(bot, user, message: str):
+    emote_id, duration = find_emote(message)
+    if not emote_id:
         return
 
-    # Find the requested emote
-    selected = next((e for e in emote_list if cleaned_msg in [a.lower() for a in e[0]]), None)
-    if selected:
-        aliases, emote_id, duration = selected
-
-        # Cancel existing loop if found
-        if user.id in self.user_loops:
-            self.user_loops[user.id]["task"].cancel()
-
-        # Define the new loop task
-        async def emote_loop():
-            try:
-                while True:
-                    if not self.user_loops[user.id]["paused"]:
-                        await self.highrise.send_emote(emote_id, user.id)
-                    await asyncio.sleep(duration)
-            except asyncio.CancelledError:
-                pass
-
-        task = asyncio.create_task(emote_loop())
-        self.user_loops[user.id] = {
-            "paused": False,
-            "emote_id": emote_id,
-            "duration": duration,
-            "task": task,
-            "last_position": None  # Track user's position
-        }
-
-        await self.highrise.send_whisper(
-            user.id,
-            f"✅ Emote {aliases[0]} is now looping. (Type 'stop' to cancel)"
-        )
-
-# Track user movement and stop their loop only if they move
-async def handle_user_movement(bot: BaseBot, user: User, new_position: Position | AnchorPosition):
     user_id = user.id
+    if user_id in bot.user_loops and bot.user_loops[user_id]["active"]:
+        await bot.highrise.send_whisper(user_id, "⛔ You already have an emote loop running. Type 'stop' to cancel.")
+        return
 
-    # Only continue if user has an active loop
+    bot.user_loops[user_id] = {
+        "active": True,
+        "paused": False,
+        "task": asyncio.create_task(start_emote_loop(bot, user, emote_id, duration))
+    }
+
+    await bot.highrise.send_whisper(user.id, f"✅ Emote loop started: {emote_id}")
+
+# عند توقف المستخدم
+async def handle_user_movement(bot, user, position):
+    user_id = user.id
     if user_id not in bot.user_loops:
         return
 
-    # Get the user's last known position
-    prev_pos = bot.user_loops[user_id].get("last_position")
-
-    # If it's the first time, store the current position
-    if prev_pos is None:
-        bot.user_loops[user_id]["last_position"] = new_position
+    # إذا المستخدم جلس أو وقف: لا توقف
+    if hasattr(position, "is_sitting") and position.is_sitting:
         return
 
-    # Define position change detection
-    def position_changed(p1, p2, threshold=0.01):
-        return (
-            abs(p1.x - p2.x) > threshold or
-            abs(p1.y - p2.y) > threshold or
-            abs(p1.z - p2.z) > threshold
-        )
+    prev = bot.user_loops[user_id]
+    if not prev["active"]:
+        return
 
-    if position_changed(prev_pos, new_position):
-        # If user moved significantly, stop their loop
-        loop_task = bot.user_loops[user_id]["task"]
-        loop_task.cancel()
-        del bot.user_loops[user_id]
-    else:
-        # Just update position if there's no real movement
-        bot.user_loops[user_id]["last_position"] = new_position
+    # أوقف الإيموت مؤقتًا
+    bot.user_loops[user_id]["paused"] = True
+
+    # تحقق إذا المستخدم توقف عن المشي (x, z لا تتغير)
+    await asyncio.sleep(0.5)
+    try:
+        room_users = await bot.highrise.get_room_users()
+        for room_user, pos in room_users.content:
+            if room_user.id == user.id:
+                # إذا ثابت -> رجّع الإيموت
+                if abs(position.x - pos.x) < 0.01 and abs(position.z - pos.z) < 0.01:
+                    bot.user_loops[user_id]["paused"] = False
+                break
+    except Exception as e:
+        print(f"[Movement Check Error]: {e}")
