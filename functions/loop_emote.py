@@ -1,7 +1,6 @@
 import asyncio
 from asyncio import Task
-
-from highrise import Highrise, BaseBot
+from highrise import BaseBot
 from highrise.models import *
 
 emote_list: list[tuple[list[str], str, float]] = [
@@ -220,32 +219,29 @@ emote_list: list[tuple[list[str], str, float]] = [
     (["222", "at attention", "At Attention"], "emote-salute", 3),
 ]
 
-user_last_positions = {}
-
-# Check and start emote loop based on user message
+# Start emote loop for a specific user
 async def check_and_start_emote_loop(self: BaseBot, user: User, message: str):
     cleaned_msg = message.strip().lower()
 
-    # Stop the emote loop if user types 'stop'
     if cleaned_msg in ("stop", "/stop", "!stop", "-stop"):
         if user.id in self.user_loops:
             self.user_loops[user.id]["task"].cancel()
             del self.user_loops[user.id]
-            await self.highrise.send_whisper(user.id, "Emote loop stopped. (Type any emote name or number to start again)")
+            await self.highrise.send_whisper(user.id, "❌ Emote loop stopped. (Type any emote name or number to start again)")
         else:
-            await self.highrise.send_whisper(user.id, "You don't have an active emote loop.")
+            await self.highrise.send_whisper(user.id, "❌ No emote loop is currently running.")
         return
 
-    # Find the emote based on message
+    # Find the requested emote
     selected = next((e for e in emote_list if cleaned_msg in [a.lower() for a in e[0]]), None)
     if selected:
         aliases, emote_id, duration = selected
 
-        # Cancel any existing loop
+        # Cancel existing loop if found
         if user.id in self.user_loops:
             self.user_loops[user.id]["task"].cancel()
 
-        # Define the loop task
+        # Define the new loop task
         async def emote_loop():
             try:
                 while True:
@@ -255,39 +251,37 @@ async def check_and_start_emote_loop(self: BaseBot, user: User, message: str):
             except asyncio.CancelledError:
                 pass
 
-        # Create and store the task
         task = asyncio.create_task(emote_loop())
         self.user_loops[user.id] = {
             "paused": False,
             "emote_id": emote_id,
             "duration": duration,
-            "task": task
+            "task": task,
+            "last_position": None  # Track user's position
         }
 
         await self.highrise.send_whisper(
             user.id,
-            f"You are now in a loop for emote number {aliases[0]}. (To stop, type 'stop')"
+            f"✅ Emote {aliases[0]} is now looping. (Type 'stop' to cancel)"
         )
 
-
-async def handle_user_movement(bot, user, new_position):
+# Track user movement and stop their loop only if they move
+async def handle_user_movement(bot: BaseBot, user: User, new_position: Position | AnchorPosition):
     user_id = user.id
 
-    # إذا المستخدم ما عنده إيموت شغال
+    # Only continue if user has an active loop
     if user_id not in bot.user_loops:
         return
 
-    if not hasattr(bot, "previous_positions"):
-        bot.previous_positions = {}
+    # Get the user's last known position
+    prev_pos = bot.user_loops[user_id].get("last_position")
 
-    prev_pos = bot.previous_positions.get(user_id)
-
-    # إذا أول مرة نشوف موقعه، نخزن ونسكت
+    # If it's the first time, store the current position
     if prev_pos is None:
-        bot.previous_positions[user_id] = new_position
+        bot.user_loops[user_id]["last_position"] = new_position
         return
 
-    # نستخدم threshold علشان نتجاهل تغييرات بسيطة (مثل الجلوس)
+    # Define position change detection
     def position_changed(p1, p2, threshold=0.01):
         return (
             abs(p1.x - p2.x) > threshold or
@@ -295,13 +289,11 @@ async def handle_user_movement(bot, user, new_position):
             abs(p1.z - p2.z) > threshold
         )
 
-    # إذا فعلاً تحرك كثير، نوقف الحلقة
     if position_changed(prev_pos, new_position):
-        bot.previous_positions[user_id] = new_position
-        loop_task = bot.user_loops.get(user_id)
-        if loop_task:
-            loop_task.cancel()
-            del bot.user_loops[user_id]
+        # If user moved significantly, stop their loop
+        loop_task = bot.user_loops[user_id]["task"]
+        loop_task.cancel()
+        del bot.user_loops[user_id]
     else:
-        # تحديث فقط بدون إيقاف لو ما تغير الموقع فعليًا
-        bot.previous_positions[user_id] = new_position
+        # Just update position if there's no real movement
+        bot.user_loops[user_id]["last_position"] = new_position
